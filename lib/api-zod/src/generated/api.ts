@@ -28,14 +28,27 @@ export const SendMessageBody = zod.object({
   sessionId: zod
     .string()
     .describe("Session identifier for conversation context"),
+  history: zod
+    .array(
+      zod.object({
+        role: zod.enum(["user", "assistant"]),
+        content: zod.string(),
+      }),
+    )
+    .optional()
+    .describe("Previous conversation turns for context continuity"),
   latitude: zod
     .number()
     .optional()
-    .describe("User's latitude (optional, for emergency referrals)"),
+    .describe(
+      "User's latitude (optional, only sent when user has granted permission)",
+    ),
   longitude: zod
     .number()
     .optional()
-    .describe("User's longitude (optional, for emergency referrals)"),
+    .describe(
+      "User's longitude (optional, only sent when user has granted permission)",
+    ),
 });
 
 export const SendMessageResponse = zod.object({
@@ -52,7 +65,14 @@ export const SendMessageResponse = zod.object({
   sessionId: zod.string(),
   callEmergency: zod
     .boolean()
-    .describe("Whether to advise calling emergency services"),
+    .describe(
+      "Whether to advise calling 999 (only true for critical emergencies)",
+    ),
+  isNewIncident: zod
+    .boolean()
+    .describe(
+      "Whether the AI detected this as a new incident vs follow-up to the current one",
+    ),
   nearbyHospitals: zod
     .array(
       zod.object({
@@ -66,7 +86,7 @@ export const SendMessageResponse = zod.object({
     )
     .optional()
     .describe(
-      "Nearby hospitals if location was provided and emergency is critical",
+      "Nearby hospitals (only populated for critical emergencies when location is available)",
     ),
 });
 

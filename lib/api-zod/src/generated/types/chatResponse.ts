@@ -18,8 +18,10 @@ export interface ChatResponse {
   /** Step-by-step first aid instructions */
   steps: string[];
   sessionId: string;
-  /** Whether to advise calling emergency services */
+  /** Whether to advise calling 999 (only true for critical emergencies) */
   callEmergency: boolean;
-  /** Nearby hospitals if location was provided and emergency is critical */
+  /** Whether the AI detected this as a new incident vs follow-up to the current one */
+  isNewIncident: boolean;
+  /** Nearby hospitals (only populated for critical emergencies when location is available) */
   nearbyHospitals?: Hospital[];
 }

@@ -5,14 +5,17 @@
  * ResQ First Aid Chatbot API
  * OpenAPI spec version: 0.1.0
  */
+import type { ConversationTurn } from "./conversationTurn";
 
 export interface ChatMessageBody {
   /** The user's message describing the emergency or asking for first aid guidance */
   message: string;
   /** Session identifier for conversation context */
   sessionId: string;
-  /** User's latitude (optional, for emergency referrals) */
+  /** Previous conversation turns for context continuity */
+  history?: ConversationTurn[];
+  /** User's latitude (optional, only sent when user has granted permission) */
   latitude?: number;
-  /** User's longitude (optional, for emergency referrals) */
+  /** User's longitude (optional, only sent when user has granted permission) */
   longitude?: number;
 }

@@ -9,14 +9,29 @@ export interface HealthStatus {
   status: string;
 }
 
+export type ConversationTurnRole =
+  (typeof ConversationTurnRole)[keyof typeof ConversationTurnRole];
+
+export const ConversationTurnRole = {
+  user: "user",
+  assistant: "assistant",
+} as const;
+
+export interface ConversationTurn {
+  role: ConversationTurnRole;
+  content: string;
+}
+
 export interface ChatMessageBody {
   /** The user's message describing the emergency or asking for first aid guidance */
   message: string;
   /** Session identifier for conversation context */
   sessionId: string;
-  /** User's latitude (optional, for emergency referrals) */
+  /** Previous conversation turns for context continuity */
+  history?: ConversationTurn[];
+  /** User's latitude (optional, only sent when user has granted permission) */
   latitude?: number;
-  /** User's longitude (optional, for emergency referrals) */
+  /** User's longitude (optional, only sent when user has granted permission) */
   longitude?: number;
 }
 
@@ -52,9 +67,11 @@ export interface ChatResponse {
   /** Step-by-step first aid instructions */
   steps: string[];
   sessionId: string;
-  /** Whether to advise calling emergency services */
+  /** Whether to advise calling 999 (only true for critical emergencies) */
   callEmergency: boolean;
-  /** Nearby hospitals if location was provided and emergency is critical */
+  /** Whether the AI detected this as a new incident vs follow-up to the current one */
+  isNewIncident: boolean;
+  /** Nearby hospitals (only populated for critical emergencies when location is available) */
   nearbyHospitals?: Hospital[];
 }
 

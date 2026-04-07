@@ -79,6 +79,18 @@ components:
       required:
         - status
 
+    ConversationTurn:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+      required:
+        - role
+        - content
+
     ChatMessageBody:
       type: object
       properties:
@@ -88,12 +100,17 @@ components:
         sessionId:
           type: string
           description: Session identifier for conversation context
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConversationTurn"
+          description: Previous conversation turns for context continuity
         latitude:
           type: number
-          description: User's latitude (optional, for emergency referrals)
+          description: User's latitude (optional, only sent when user has granted permission)
         longitude:
           type: number
-          description: User's longitude (optional, for emergency referrals)
+          description: User's longitude (optional, only sent when user has granted permission)
       required:
         - message
         - sessionId
@@ -120,12 +137,15 @@ components:
           type: string
         callEmergency:
           type: boolean
-          description: Whether to advise calling emergency services
+          description: Whether to advise calling 999 (only true for critical emergencies)
+        isNewIncident:
+          type: boolean
+          description: Whether the AI detected this as a new incident vs follow-up to the current one
         nearbyHospitals:
           type: array
           items:
             $ref: "#/components/schemas/Hospital"
-          description: Nearby hospitals if location was provided and emergency is critical
+          description: Nearby hospitals (only populated for critical emergencies when location is available)
       required:
         - response
         - isEmergency
@@ -133,6 +153,7 @@ components:
         - steps
         - sessionId
         - callEmergency
+        - isNewIncident
 
     LocationBody:
       type: object

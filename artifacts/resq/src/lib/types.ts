@@ -1,3 +1,8 @@
+export interface ConversationTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "bot";
