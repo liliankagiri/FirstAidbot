@@ -111,6 +111,9 @@ components:
         longitude:
           type: number
           description: User's longitude (optional, only sent when user has granted permission)
+        locationText:
+          type: string
+          description: User's city or area as text fallback when GPS is unavailable
       required:
         - message
         - sessionId

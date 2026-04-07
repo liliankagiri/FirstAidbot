@@ -20,6 +20,7 @@ const INITIAL_SUGGESTIONS = [
 ];
 
 type LocationPermission = "undecided" | "granted" | "declined";
+type LocationStep = "prompt" | "asking-text" | "done";
 
 export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -28,7 +29,10 @@ export default function Home() {
   const [isTyping, setIsTyping] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [locationPermission, setLocationPermission] = useState<LocationPermission>("undecided");
+  const [locationStep, setLocationStep] = useState<LocationStep>("prompt");
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationText, setLocationText] = useState<string>("");
+  const [cityInput, setCityInput] = useState("");
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [callEmergencyBanner, setCallEmergencyBanner] = useState(false);
@@ -66,7 +70,7 @@ export default function Home() {
     try {
       const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
         navigator.geolocation.getCurrentPosition(resolve, reject, {
-          timeout: 10000,
+          timeout: 6000,
           maximumAge: 30000,
         })
       );
@@ -79,7 +83,12 @@ export default function Home() {
   };
 
   const dispatchMessage = useCallback(
-    async (text: string, loc: { latitude: number; longitude: number } | null, currentHistory: ConversationTurn[]) => {
+    async (
+      text: string,
+      loc: { latitude: number; longitude: number } | null,
+      locText: string,
+      currentHistory: ConversationTurn[]
+    ) => {
       setIsTyping(true);
 
       try {
@@ -90,6 +99,7 @@ export default function Home() {
             history: currentHistory,
             latitude: loc?.latitude,
             longitude: loc?.longitude,
+            locationText: locText || undefined,
           },
         });
 
@@ -160,30 +170,54 @@ export default function Home() {
     if (locationPermission === "undecided") {
       setPendingMessage(trimmed);
       setShowLocationPrompt(true);
+      setLocationStep("prompt");
       return;
     }
 
-    await dispatchMessage(trimmed, location, history);
+    await dispatchMessage(trimmed, location, locationText, history);
   };
 
   const handleLocationAllow = async () => {
-    setShowLocationPrompt(false);
-    setLocationPermission("granted");
+    setLocationStep("asking-text");
     const loc = await acquireLocation();
+    if (loc) {
+      // GPS succeeded
+      setLocationPermission("granted");
+      setShowLocationPrompt(false);
+      setLocationStep("done");
+      if (pendingMessage) {
+        const msg = pendingMessage;
+        setPendingMessage(null);
+        await dispatchMessage(msg, loc, locationText, history);
+      }
+    } else {
+      // GPS failed — ask for city text
+      setLocationStep("asking-text");
+    }
+  };
+
+  const handleCitySubmit = async (city: string) => {
+    const trimmedCity = city.trim();
+    setShowLocationPrompt(false);
+    setLocationStep("done");
+    setLocationPermission("granted");
+    setLocationText(trimmedCity);
+    setCityInput("");
     if (pendingMessage) {
       const msg = pendingMessage;
       setPendingMessage(null);
-      await dispatchMessage(msg, loc, history);
+      await dispatchMessage(msg, null, trimmedCity, history);
     }
   };
 
   const handleLocationDecline = async () => {
     setShowLocationPrompt(false);
+    setLocationStep("done");
     setLocationPermission("declined");
     if (pendingMessage) {
       const msg = pendingMessage;
       setPendingMessage(null);
-      await dispatchMessage(msg, null, history);
+      await dispatchMessage(msg, null, "", history);
     }
   };
 
@@ -361,7 +395,7 @@ export default function Home() {
           )}
 
           {/* Location permission prompt — inline in chat */}
-          {showLocationPrompt && (
+          {showLocationPrompt && locationStep === "prompt" && (
             <div className="self-start max-w-[86%] animate-in fade-in slide-in-from-bottom-1 duration-200">
               <div className="bg-white border border-[#0a5c36]/20 rounded-2xl rounded-tl-sm px-4 py-4 shadow-sm">
                 <div className="flex items-start gap-3 mb-3">
@@ -393,6 +427,57 @@ export default function Home() {
                     No thanks
                   </Button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* City fallback — shown when GPS is unavailable */}
+          {showLocationPrompt && locationStep === "asking-text" && (
+            <div className="self-start max-w-[86%] animate-in fade-in slide-in-from-bottom-1 duration-200">
+              <div className="bg-white border border-[#0a5c36]/20 rounded-2xl rounded-tl-sm px-4 py-4 shadow-sm">
+                <div className="flex items-start gap-3 mb-3">
+                  <MapPin className="w-5 h-5 text-[#0a5c36] shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-[14px] font-semibold text-slate-800 mb-1">
+                      What city or area are you in?
+                    </p>
+                    <p className="text-[13px] text-slate-500 leading-relaxed">
+                      GPS isn't available here. Enter your city or area so I can suggest nearby
+                      hospitals in an emergency. Or skip this step.
+                    </p>
+                  </div>
+                </div>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleCitySubmit(cityInput);
+                  }}
+                  className="flex gap-2"
+                >
+                  <Input
+                    value={cityInput}
+                    onChange={(e) => setCityInput(e.target.value)}
+                    placeholder="e.g. London, Manchester..."
+                    className="flex-1 text-sm h-8 border-slate-200"
+                    autoFocus
+                  />
+                  <Button
+                    type="submit"
+                    size="sm"
+                    className="bg-[#0a5c36] hover:bg-[#084528] text-white text-xs px-3 h-8 shrink-0"
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleCitySubmit("")}
+                    className="text-xs px-3 h-8 border-slate-200 text-slate-500 shrink-0"
+                  >
+                    Skip
+                  </Button>
+                </form>
               </div>
             </div>
           )}

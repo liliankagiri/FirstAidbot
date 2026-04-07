@@ -18,4 +18,6 @@ export interface ChatMessageBody {
   latitude?: number;
   /** User's longitude (optional, only sent when user has granted permission) */
   longitude?: number;
+  /** User's city or area as text fallback when GPS is unavailable */
+  locationText?: string;
 }

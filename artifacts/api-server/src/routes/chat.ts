@@ -58,14 +58,21 @@ router.post("/chat/message", async (req, res): Promise<void> => {
     return;
   }
 
-  const { message, sessionId, latitude, longitude, history } = parsed.data;
+  const { message, sessionId, latitude, longitude, history, locationText } = parsed.data;
 
-  req.log.info({ sessionId, hasLocation: latitude != null }, "Processing chat message");
+  const hasGps = latitude != null && longitude != null;
+  const hasLocationText = typeof locationText === "string" && locationText.trim().length > 0;
 
-  const locationContext =
-    latitude != null && longitude != null
-      ? `\n\n[User's location is available for hospital referral if needed.]`
-      : "";
+  req.log.info(
+    { sessionId, hasGps, hasLocationText },
+    "Processing chat message"
+  );
+
+  const locationContext = hasGps
+    ? `\n\n[User's GPS location is available for hospital referral if needed.]`
+    : hasLocationText
+    ? `\n\n[User's general area: ${locationText}. Use this for hospital referral if needed.]`
+    : "";
 
   const conversationMessages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
     { role: "system", content: SYSTEM_PROMPT },
@@ -141,8 +148,12 @@ router.post("/chat/message", async (req, res): Promise<void> => {
       | undefined,
   };
 
-  if (emergencyLevel === "critical" && latitude != null && longitude != null) {
-    responsePayload.nearbyHospitals = getNearbyHospitalsMock(latitude, longitude);
+  if (emergencyLevel === "critical") {
+    if (hasGps && latitude != null && longitude != null) {
+      responsePayload.nearbyHospitals = getNearbyHospitalsMock(latitude, longitude, undefined);
+    } else if (hasLocationText && locationText) {
+      responsePayload.nearbyHospitals = getNearbyHospitalsMock(null, null, locationText.trim());
+    }
   }
 
   const validated = SendMessageResponse.safeParse(responsePayload);
@@ -156,33 +167,44 @@ router.post("/chat/message", async (req, res): Promise<void> => {
 });
 
 function getNearbyHospitalsMock(
-  lat: number,
-  lng: number
+  lat: number | null,
+  lng: number | null,
+  locationText: string | undefined
 ): Array<{
   name: string;
   address: string;
   distance: string;
   phone?: string;
-  latitude: number;
-  longitude: number;
+  latitude?: number;
+  longitude?: number;
 }> {
-  const offsets = [
-    { name: "City General Hospital", address: "123 Main Street, City Centre", phone: "0800 555 0100", dlat: 0.012, dlng: 0.008 },
-    { name: "St. Mary's Medical Centre", address: "456 Oak Avenue, Westside", phone: "0800 555 0200", dlat: -0.018, dlng: 0.015 },
-    { name: "Memorial Emergency Hospital", address: "789 Park Boulevard, North District", phone: "0800 555 0300", dlat: 0.025, dlng: -0.01 },
-  ];
+  const area = locationText ?? "City Centre";
 
-  return offsets.map((h) => {
-    const distKm = Math.round(Math.sqrt(Math.pow(h.dlat * 111, 2) + Math.pow(h.dlng * 111, 2)) * 10) / 10;
-    return {
-      name: h.name,
-      address: h.address,
-      distance: `${distKm} km away`,
-      phone: h.phone,
-      latitude: lat + h.dlat,
-      longitude: lng + h.dlng,
-    };
-  });
+  if (lat != null && lng != null) {
+    const offsets = [
+      { name: `${area} General Hospital`, address: `123 Main Street, ${area}`, phone: "0800 555 0100", dlat: 0.012, dlng: 0.008 },
+      { name: "St. Mary's Medical Centre", address: `456 Oak Avenue, ${area}`, phone: "0800 555 0200", dlat: -0.018, dlng: 0.015 },
+      { name: "Memorial Emergency Hospital", address: `789 Park Boulevard, ${area}`, phone: "0800 555 0300", dlat: 0.025, dlng: -0.01 },
+    ];
+    return offsets.map((h) => {
+      const distKm = Math.round(Math.sqrt(Math.pow(h.dlat * 111, 2) + Math.pow(h.dlng * 111, 2)) * 10) / 10;
+      return {
+        name: h.name,
+        address: h.address,
+        distance: `${distKm} km away`,
+        phone: h.phone,
+        latitude: lat + h.dlat,
+        longitude: lng + h.dlng,
+      };
+    });
+  }
+
+  // Text-based fallback — approximate distances
+  return [
+    { name: `${area} General Hospital`, address: `Main Street, ${area}`, distance: "1.2 km away", phone: "0800 555 0100" },
+    { name: `${area} St. Mary's Medical Centre`, address: `Oak Avenue, ${area}`, distance: "2.1 km away", phone: "0800 555 0200" },
+    { name: `${area} Memorial Emergency`, address: `Park Boulevard, ${area}`, distance: "3.4 km away", phone: "0800 555 0300" },
+  ];
 }
 
 export default router;

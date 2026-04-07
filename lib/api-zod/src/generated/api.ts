@@ -49,6 +49,10 @@ export const SendMessageBody = zod.object({
     .describe(
       "User's longitude (optional, only sent when user has granted permission)",
     ),
+  locationText: zod
+    .string()
+    .optional()
+    .describe("User's city or area as text fallback when GPS is unavailable"),
 });
 
 export const SendMessageResponse = zod.object({
