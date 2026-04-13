@@ -94,7 +94,7 @@ router.post("/chat/message", async (req, res): Promise<void> => {
   });
 
   const completion = await openai.chat.completions.create({
-    model: "gpt-5.2",
+    model: "gpt-4o-mini",
     max_completion_tokens: 8192,
     messages: conversationMessages,
   });
