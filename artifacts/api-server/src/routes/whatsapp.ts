@@ -25,55 +25,12 @@ router.post("/webhook/whatsapp", async (req, res) => {
       return res.sendStatus(200);
     }
 
-const from = message.from;
-const text = message.text?.body;
+    const from = message.from;
+    const text = message.text?.body;
 
-if (!from || !text) {
-  return res.sendStatus(200);
-}
-
-const chatResponse = await fetch(
-  `${process.env.PUBLIC_BASE_URL}/api/chat/message`,
-  {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      message: text,
-      sessionId: from,
-    }),
-  }
-);
-
-const aiData = await chatResponse.json();
-const replyText =
-  aiData?.response ?? "Hello Lily 👋 your bot is working!";
-
-const whatsappResponse = await fetch(
-  `https://graph.facebook.com/v25.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
-  {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
-    },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      to: from,
-      type: "text",
-      text: {
-        body: replyText,
-      },
-    }),
-  }
-);
-
-const whatsappData = await whatsappResponse.json();
-console.log("WhatsApp send status:", whatsappResponse.status);
-console.log("WhatsApp send response:", JSON.stringify(whatsappData));
-
-return res.sendStatus(200);
+    if (!from || !text) {
+      return res.sendStatus(200);
+    }
 
     const chatResponse = await fetch(
       `${process.env.PUBLIC_BASE_URL}/api/chat/message`,
@@ -91,10 +48,9 @@ return res.sendStatus(200);
 
     const aiData = await chatResponse.json();
     const replyText =
-      aiData?.response ??
-      "I received your message, but I could not generate a reply.";
+      aiData?.response ?? "Hello Lily 👋 your bot is working!";
 
-    await fetch(
+    const whatsappResponse = await fetch(
       `https://graph.facebook.com/v25.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
       {
         method: "POST",
@@ -112,6 +68,10 @@ return res.sendStatus(200);
         }),
       }
     );
+
+    const whatsappData = await whatsappResponse.json();
+    console.log("WhatsApp send status:", whatsappResponse.status);
+    console.log("WhatsApp send response:", JSON.stringify(whatsappData));
 
     return res.sendStatus(200);
   } catch (error) {
